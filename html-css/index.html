@@ -7,11 +7,95 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <script>
+        var teamAScore = 0;
+        var teamBScore = 0;
+        var currentPeriod = 1;
+        var teamAFaults = 0;
+        var teamBFaults = 0;
+
+        function addPointsTeamA(numberOfPoints) {
+            teamAScore += numberOfPoints;
+            document.getElementById("teamAScore").innerText = teamAScore;
+
+            var route = "";
+
+            switch(numberOfPoints){
+                case 1:
+                    route = "/add1A";
+                    break;
+                case 2:
+                    route = "/add2A";
+                    break;
+                case 3:
+                    route = "/add3A";
+                    break;
+            }
+
+            fetch(route).then(response => console.log("Período incrementado"));
+        }
+
+        function addPointsTeamB(numberOfPoints) {
+            teamBScore += numberOfPoints;
+            document.getElementById("teamBScore").innerText = teamBScore;
+
+            var route = "";
+
+            switch(numberOfPoints){
+                case 1:
+                    route = "/add1B";
+                    break;
+                case 2:
+                    route = "/add2B";
+                    break;
+                case 3:
+                    route = "/add3B";
+                    break;
+            }
+
+            fetch(route).then(response => console.log("Período incrementado")); 
+        }
+
+        function incrementPeriod() {
+            currentPeriod += 1;
+            document.getElementById("currentPeriod").innerText = currentPeriod;
+
+            fetch("/period").then(response => console.log("Período incrementado"));
+        }
+
+        function addFaultTeamA() {
+            teamAFaults += 1;
+            document.getElementById("teamAFautls").innerText = teamAFaults;
+
+            fetch("/faultA").then(response => console.log("Falta time A"));
+        }
+
+        function addFaultTeamB() {
+            teamBFaults += 1;
+            document.getElementById("teamBFautls").innerText = teamBFaults;
+
+            fetch("/faultB").then(response => console.log("Falta time B"));
+        }
+
+        function resetPts(){
+            teamAScore = 0;
+            teamBScore = 0;
+
+            document.getElementById("teamAScore").innerText = teamAScore;
+            document.getElementById("teamBScore").innerText = teamBScore;
+
+            fetch("/resetPts").then(response => console.log("Pontos Resetados"));
+        }
+
+        function timerClicked() {
+            fetch("/timer").then(response => console.log("Mudança no cronômetro"));
+        }
+    </script>
     <div class="scoreboard-container">
         <!-- FALTAS/SET A -->
         <div class="score-block" id="faults-position-a">
             <div class="score-box">
-                <span class="score-text">12</span>
+                <span class="score-text" id="teamAFaults">0</span>
             </div>
             <p class="score-label">FALTAS/SET A</p>
         </div>
@@ -20,14 +104,14 @@
         <div class="score-block" id="period-position">
             <span class="score-label">PERÍODO</span>
             <div class="period-box" >
-                <span class="period-text">9</span>
+                <span class="period-text" id="currentPeriod">1</span>
             </div>
         </div>
 
         <!-- FALTAS/SET B -->
         <div class="score-block" id="faults-position-b">
             <div class="score-box">
-                <span class="score-text">10</span>
+                <span class="score-text" id="teamBFaults">0</span>
             </div>
             <p class="score-label">FALTAS/SET B</p>
         </div>
@@ -42,14 +126,14 @@
         <!-- PONTOS TIME A -->
         <div class="score-block" id="score-position-a">
             <div class="score-box-2">
-                <span class="score-text">999</span>
+                <span class="score-text" id="teamAScore">0</span>
             </div>
             <p class="score-label">TIME A</p>
         </div>
         <!-- PONTOS TIME B -->
         <div class="score-block" id="score-position-b">
             <div class="score-box-2">
-                <span class="score-text">9</span>
+                <span class="score-text" id="teamBScore">0</span>
             </div>
             <p class="score-label">TIME B</p>
         </div>
@@ -59,10 +143,10 @@
     <div class="team-a-container">
         <p class="team-label">TIME A</p>
         <div class="btn-row">
-            <button class="btns-team-a">+ 1</button>
-            <button class="btns-team-a">+ 2</button>
-            <button class="btns-team-a">+ 3</button>
-            <button class="btns-team-a">FALTA</button>
+            <button class="btns-team-a" onclick="addPointsTeamA(1)">+ 1</button>
+            <button class="btns-team-a" onclick="addPointsTeamA(2)">+ 2</button>
+            <button class="btns-team-a" onclick="addPointsTeamA(3)">+ 3</button>
+            <button class="btns-team-a" onclick="addFaultTeamA()">FALTA</button>
         </div>
     </div>
 
@@ -70,20 +154,20 @@
     <div class="team-b-container">
         <p class="team-label">TIME B</p>
         <div class="btn-row">
-            <button class="btns-team-b">+ 1</button>
-            <button class="btns-team-b">+ 2</button>
-            <button class="btns-team-b">+ 3</button>
-            <button class="btns-team-b">FALTA</button>
+            <button class="btns-team-b" onclick="addPointsTeamB(1)">+ 1</button>
+            <button class="btns-team-b" onclick="addPointsTeamB(2)">+ 2</button>
+            <button class="btns-team-b" onclick="addPointsTeamB(3)">+ 3</button>
+            <button class="btns-team-b" onclick="addFaultTeamB()">FALTA</button>
         </div>
     </div>
 
     <!-- Botão de resetar pontos -->
-    <button class="reset-btn-1">RESETAR PONTOS</button>
+    <button class="reset-btn-1" onclick="resetPts()">RESETAR PONTOS</button>
     <!-- Botão Período -->
-    <button class="reset-btn-2">PERÍODO</button>
+    <button class="reset-btn-2" onclick="incrementPeriod()">PERÍODO</button>
     
     <!-- Botão Cronômetro -->
-    <button class="btn">CRONÔMETRO</button>
+    <button class="btn" onclick="timerClicked()">CRONÔMETRO</button>
 
     <!-- Rodapé -->
     <p>Feito por Tiago Oliveira. 
