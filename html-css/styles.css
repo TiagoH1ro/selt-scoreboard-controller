@@ -1,0 +1,306 @@
+@font-face {
+    font-family: 'Seven Segment';
+    src: url('fonts/sevenSegment.ttf') format('truetype');
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background-color: #cccccc;
+    font-family: Arial, sans-serif;
+    height: 100vh;
+}
+
+/* Container principal */
+.scoreboard-container {
+    width: 96vw;
+    height: 42vh;
+    background-color: #4c4c4c;
+    border-radius: 5vw;
+    margin: 1vh auto;
+    position: relative;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 4vw;
+
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.team-a-container {
+    width: 96vw;
+    height: 20vh;
+    background-color: #0487D9;
+    border-radius: 5vw;
+    margin: 1vh auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 1vw;
+
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.team-b-container {
+    width: 96vw;
+    height: 20vh;
+    background-color: #2E4959;
+    border-radius: 5vw;
+    margin: 1vh auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 7vw;
+
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 1vh;
+}
+
+.btn {
+    background-color: red;
+    color: white;
+    margin: 1vh auto;
+    position: relative;
+    display: block;
+    padding: 4vw 4vw;
+    font-size: 4vw;
+    font-weight: bold;
+    border: none;
+    border-radius: 2vw;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s ease;
+}
+
+.btns-team-a {
+    background-color: #005488;
+    color: white;
+    margin: 1vh auto;
+    position: relative;
+    display: block;
+    padding: 4vw 4vw;
+    font-size: 4vw;
+    font-weight: bold;
+    border: none;
+    border-radius: 2vw;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s ease;
+}
+
+.btns-team-b {
+    background-color: #192830;
+    color: white;
+    margin: 1vh auto;
+    position: relative;
+    display: block;
+    padding: 4vw 4vw;
+    font-size: 4vw;
+    font-weight: bold;
+    border: none;
+    border-radius: 2vw;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s ease;
+}
+
+.reset-btn-1 {
+    background-color: #D26262;
+    color: white;
+    margin: 1vh auto;
+    padding: 4vw 4vw;
+    font-size: 4vw;
+    font-weight: bold;
+    border: none;
+    border-radius: 2vw;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s ease;
+    position: absolute;
+    top: 60vh;
+    right: 50%;
+    transform: translateX(10%);
+}
+
+.reset-btn-2 {
+    background-color: #D26262;
+    color: white;
+    margin: 1vh auto;
+    padding: 4vw 4vw;
+    font-size: 4vw;
+    font-weight: bold;
+    border: none;
+    border-radius: 2vw;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s ease;
+    position: absolute;
+    top: 60vh;
+    left: 50%;
+    transform: translateX(50%);
+}
+
+.score-block {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.score-box {
+    background-color: #414141;
+    border: 1.5vw solid white;
+    border-radius: 2vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 20vw;
+    height: 18vw;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.score-box-2 {
+    background-color: #414141;
+    border: 1.5vw solid white;
+    border-radius: 2vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 32vw;
+    height: 18vw;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.score-text {
+    font-family: 'Seven Segment', sans-serif;
+    font-size: 16vw;
+    font-weight: bold;
+    color: red;
+}
+
+.score-label {
+    color: white;
+    font-family: system-ui, 'Segoe UI', 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-size: 3.5vw;
+    font-weight: bolder;
+    margin-top: 1vw;
+    margin-bottom: 1vw;
+    text-align: center;
+}
+
+.team-label {
+    color: white;
+    font-family: system-ui, 'Segoe UI', 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-size: 6vw;
+    font-weight: bolder;
+    margin-top: 1vw;
+    margin-bottom: 1vw;
+    text-align: center;
+}
+
+.period-box {
+    left: 50%;
+    background-color: #373737;
+    border: 1.5vw solid white;
+    border-radius: 3vw;
+    width: 15vw;
+    height: 15vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.period-text {
+    font-family: 'Seven Segment', sans-serif;
+    font-size: 10vw;
+    font-weight: bold;
+    color: red;
+}
+
+.timer-box {
+    left: 50%;
+    background-color: #373737;
+    border: 1.5vw solid white;
+    border-radius: 3vw;
+    width: 30vw;
+    height: 15vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.timer-text {
+    font-family: 'Seven Segment', sans-serif;
+    font-size: 10vw;
+    font-weight: bolder;
+    color: red;
+    animation: fadeTimer 5s infinite ease-in-out;
+    transition: opacity 5s ease-in-out;
+}
+
+/* Animção Fade */
+@keyframes fadeTimer {
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+#faults-position-a {
+    top: 5%;
+    left: 5%;
+}
+
+#faults-position-b {
+    top: 5%;
+    right: 5%;
+}
+
+#period-position {
+    top: 5%;
+}
+
+#timer-position {
+    top: 35%;
+}
+
+#score-position-a {
+    bottom: 2%;
+    left: 5%;
+}
+
+#score-position-b {
+    bottom: 2%;
+    right: 5%;
+}
+
+p {
+    text-align: center;
+}
+
+a {
+    color: inherit;       
+    display: inline-flex;    
+    justify-content: center;
+    align-items: center; 
+}
+
+.github-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+}

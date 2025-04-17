@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controlador Placar - SELT</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="scoreboard-container">
+        <!-- FALTAS/SET A -->
+        <div class="score-block" id="faults-position-a">
+            <div class="score-box">
+                <span class="score-text">12</span>
+            </div>
+            <p class="score-label">FALTAS/SET A</p>
+        </div>
+
+        <!-- PERÍODO -->
+        <div class="score-block" id="period-position">
+            <span class="score-label">PERÍODO</span>
+            <div class="period-box" >
+                <span class="period-text">9</span>
+            </div>
+        </div>
+
+        <!-- FALTAS/SET B -->
+        <div class="score-block" id="faults-position-b">
+            <div class="score-box">
+                <span class="score-text">10</span>
+            </div>
+            <p class="score-label">FALTAS/SET B</p>
+        </div>
+
+        <!-- CRONÔMETRO -->
+        <div class="score-block" id="timer-position">
+            <p class="score-label">CRONÔMETRO</p>
+            <div class="timer-box">
+                <span class="timer-text" id="timerDisplay">-- --</span>
+            </div>
+        </div>
+        <!-- PONTOS TIME A -->
+        <div class="score-block" id="score-position-a">
+            <div class="score-box-2">
+                <span class="score-text">999</span>
+            </div>
+            <p class="score-label">TIME A</p>
+        </div>
+        <!-- PONTOS TIME B -->
+        <div class="score-block" id="score-position-b">
+            <div class="score-box-2">
+                <span class="score-text">9</span>
+            </div>
+            <p class="score-label">TIME B</p>
+        </div>
+    </div>
+
+    <!-- Controles Time A -->
+    <div class="team-a-container">
+        <p class="team-label">TIME A</p>
+        <div class="btn-row">
+            <button class="btns-team-a">+ 1</button>
+            <button class="btns-team-a">+ 2</button>
+            <button class="btns-team-a">+ 3</button>
+            <button class="btns-team-a">FALTA</button>
+        </div>
+    </div>
+
+    <!-- Controles Time B -->
+    <div class="team-b-container">
+        <p class="team-label">TIME B</p>
+        <div class="btn-row">
+            <button class="btns-team-b">+ 1</button>
+            <button class="btns-team-b">+ 2</button>
+            <button class="btns-team-b">+ 3</button>
+            <button class="btns-team-b">FALTA</button>
+        </div>
+    </div>
+
+    <!-- Botão de resetar pontos -->
+    <button class="reset-btn-1">RESETAR PONTOS</button>
+    <!-- Botão Período -->
+    <button class="reset-btn-2">PERÍODO</button>
+    
+    <!-- Botão Cronômetro -->
+    <button class="btn">CRONÔMETRO</button>
+
+    <!-- Rodapé -->
+    <p>Feito por Tiago Oliveira. 
+        <a href="https://github.com/TiagoH1ro">
+            Github 
+            <img src="github.svg" class="github-icon">
+        </a>
+    </p>
+</body>
+</html>
+
