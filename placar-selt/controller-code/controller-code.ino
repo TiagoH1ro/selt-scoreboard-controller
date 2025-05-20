@@ -19,14 +19,14 @@ int teamBFaults = 0;
 
 int currentPeriod = 0;
 
-#define Aplus 21
-#define Bplus 19
+#define Aplus 4
+#define Bplus 16
 
-#define Afault 18
+#define Afault 17
 #define Bfault 5
 
-#define timer 17
-#define period 16
+#define timer 18
+#define period 19
 
 void setup() {
     Serial.begin(115200);
