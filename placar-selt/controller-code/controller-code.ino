@@ -1,11 +1,12 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
-#include <SPIFFS.h>
+#include <FS.h>
+#include "LittleFS.h"
 #include <ESPAsyncWebServer.h>
 
 // Configurações da rede Wi-Fi
-const char* ssid = "Controlador Placar - SELT";
-const char* password = "";
+const char *ssid = "Controlador Placar - SELT";
+const char *password = "";
 
 // Inicializa o servidor web
 // WebServer server(80);
@@ -29,164 +30,171 @@ int currentPeriod = 1;
 #define period 19
 
 void setup() {
-    Serial.begin(115200);
+  Serial.begin(115200);
 
-    pinSetup();
+  pinSetup();
 
-    WiFi.softAP(ssid, password);
-    Serial.println("Access Point configurado");
+  WiFi.softAP(ssid, password);
+  Serial.println("Access Point configurado");
 
-    // Define o IP fixo
-    IPAddress local_IP(192, 168, 1, 1);
-    IPAddress gateway(192, 168, 1, 1);
-    IPAddress subnet(255, 255, 255, 0);
+  // Define o IP fixo
+  IPAddress local_IP(192, 168, 1, 1);
+  IPAddress gateway(192, 168, 1, 1);
+  IPAddress subnet(255, 255, 255, 0);
 
-    MDNS.begin("placar");
+  MDNS.begin("placar");
 
-    WiFi.softAPConfig(local_IP, gateway, subnet);
+  WiFi.softAPConfig(local_IP, gateway, subnet);
 
-    // Define as rotas para os botões
-    server.on("/", HTTP_GET, handleRoot);
+  if (!LittleFS.begin()) {
+    Serial.println("Falha ao montar o sistema de arquivos LittleFS");
+    return;
+  }
+  Serial.println("Sistema de arquivos LittleFS montado com sucesso!");
 
-    server.on("/start", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(200, "application/json", updateJSON());
-    });
+  server.serveStatic("/github.svg", LittleFS, "/github.svg");
+  server.serveStatic("/sevenSegment.ttf", LittleFS, "/sevenSegment.ttf");
 
-    server.on("/resetAll", HTTP_GET, [](AsyncWebServerRequest *request) {
-        teamAScore = 0;
-        teamBScore = 0;
-        teamAFaults = 0;
-        teamBFaults = 0;
-        currentPeriod = 1;
+  server.on("/", HTTP_GET, handleRoot);
 
-        request->send(200, "application/json", updateJSON());
-    });
+  server.on("/start", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "application/json", updateJSON());
+  });
 
-    server.on("/add1A", HTTP_GET, [](AsyncWebServerRequest *request) {
-        teamAScore += 1;
-        pinPulse(1, Aplus);
-        request->send(200, "application/json", updateJSON());
-    });
-    server.on("/add2A", HTTP_GET, [](AsyncWebServerRequest *request) {
-        teamAScore += 2;
-        pinPulse(2, Aplus);
-        request->send(200, "application/json", updateJSON());
-    });
-    server.on("/add3A", HTTP_GET, [](AsyncWebServerRequest *request) {
-        teamAScore += 3;
-        pinPulse(3, Aplus);
-        request->send(200, "application/json", updateJSON());
-    });
-    server.on("/add1B", HTTP_GET, [](AsyncWebServerRequest *request) {
-        teamBScore += 1;
-        pinPulse(1, Bplus);
-        request->send(200, "application/json", updateJSON());
-    });
-    server.on("/add2B", HTTP_GET, [](AsyncWebServerRequest *request) {
-        teamBScore += 2;
-        pinPulse(2, Bplus);
-        request->send(200, "application/json", updateJSON());
-    });
-    server.on("/add3B", HTTP_GET, [](AsyncWebServerRequest *request) {
-        teamBScore += 3;
-        pinPulse(3, Bplus);
-        request->send(200, "application/json", updateJSON());
-    });
+  server.on("/resetAll", HTTP_GET, [](AsyncWebServerRequest *request) {
+    teamAScore = 0;
+    teamBScore = 0;
+    teamAFaults = 0;
+    teamBFaults = 0;
+    currentPeriod = 1;
 
-    server.on("/timer", HTTP_GET, [](AsyncWebServerRequest *request) {
-        pinPulse(1, timer);
-        request->send(200, "application/json", updateJSON());
-    });
+    request->send(200, "application/json", updateJSON());
+  });
 
-    server.on("/resetPts", HTTP_GET, [](AsyncWebServerRequest *request) {
-        resetPts();
-        teamAScore = 0;
-        teamBScore = 0;
-        request->send(200, "application/json", updateJSON());
-    });
+  server.on("/add1A", HTTP_GET, [](AsyncWebServerRequest *request) {
+    teamAScore += 1;
+    pinPulse(1, Aplus);
+    request->send(200, "application/json", updateJSON());
+  });
+  server.on("/add2A", HTTP_GET, [](AsyncWebServerRequest *request) {
+    teamAScore += 2;
+    pinPulse(2, Aplus);
+    request->send(200, "application/json", updateJSON());
+  });
+  server.on("/add3A", HTTP_GET, [](AsyncWebServerRequest *request) {
+    teamAScore += 3;
+    pinPulse(3, Aplus);
+    request->send(200, "application/json", updateJSON());
+  });
+  server.on("/add1B", HTTP_GET, [](AsyncWebServerRequest *request) {
+    teamBScore += 1;
+    pinPulse(1, Bplus);
+    request->send(200, "application/json", updateJSON());
+  });
+  server.on("/add2B", HTTP_GET, [](AsyncWebServerRequest *request) {
+    teamBScore += 2;
+    pinPulse(2, Bplus);
+    request->send(200, "application/json", updateJSON());
+  });
+  server.on("/add3B", HTTP_GET, [](AsyncWebServerRequest *request) {
+    teamBScore += 3;
+    pinPulse(3, Bplus);
+    request->send(200, "application/json", updateJSON());
+  });
 
-    server.on("/period", HTTP_GET, [](AsyncWebServerRequest *request) {
-        currentPeriod++;
-        pinPulse(1, period);
-        request->send(200, "application/json", updateJSON());
-    });
+  server.on("/timer", HTTP_GET, [](AsyncWebServerRequest *request) {
+    pinPulse(1, timer);
+    request->send(200, "application/json", updateJSON());
+  });
 
-    server.on("/faultA", HTTP_GET, [](AsyncWebServerRequest *request) {
-        teamAFaults++;
-        pinPulse(1, Afault);
-        request->send(200, "application/json", updateJSON());
-    });
+  server.on("/resetPts", HTTP_GET, [](AsyncWebServerRequest *request) {
+    resetPts();
+    teamAScore = 0;
+    teamBScore = 0;
+    request->send(200, "application/json", updateJSON());
+  });
 
-    server.on("/faultB", HTTP_GET, [](AsyncWebServerRequest *request) {
-        teamBFaults++;
-        pinPulse(1, Bfault);
-        request->send(200, "application/json", updateJSON());
-    });
+  server.on("/period", HTTP_GET, [](AsyncWebServerRequest *request) {
+    currentPeriod++;
+    pinPulse(1, period);
+    request->send(200, "application/json", updateJSON());
+  });
 
-    server.begin();
-    Serial.println("Servidor Iniciado");
+  server.on("/faultA", HTTP_GET, [](AsyncWebServerRequest *request) {
+    teamAFaults++;
+    pinPulse(1, Afault);
+    request->send(200, "application/json", updateJSON());
+  });
+
+  server.on("/faultB", HTTP_GET, [](AsyncWebServerRequest *request) {
+    teamBFaults++;
+    pinPulse(1, Bfault);
+    request->send(200, "application/json", updateJSON());
+  });
+
+  server.begin();
+  Serial.println("Servidor Iniciado");
 }
 
 void loop() {
-    
 }
 
 void pinSetup() {
-    pinMode(Aplus, OUTPUT);
-    pinMode(Bplus, OUTPUT);
-    pinMode(Afault, OUTPUT);
-    pinMode(Bfault, OUTPUT);
-    pinMode(timer, OUTPUT);
-    pinMode(period, OUTPUT);
+  pinMode(Aplus, OUTPUT);
+  pinMode(Bplus, OUTPUT);
+  pinMode(Afault, OUTPUT);
+  pinMode(Bfault, OUTPUT);
+  pinMode(timer, OUTPUT);
+  pinMode(period, OUTPUT);
 
-    digitalWrite(Aplus, LOW);
-    digitalWrite(Bplus, LOW);
-    digitalWrite(Afault, LOW);
-    digitalWrite(Bfault, LOW);
-    digitalWrite(timer, LOW);
-    digitalWrite(period, LOW);
+  digitalWrite(Aplus, LOW);
+  digitalWrite(Bplus, LOW);
+  digitalWrite(Afault, LOW);
+  digitalWrite(Bfault, LOW);
+  digitalWrite(timer, LOW);
+  digitalWrite(period, LOW);
 }
 
 void pinPulse(int numOfPulses, int PIN) {
-    for (int i = 0; i < numOfPulses; i++) {
-        digitalWrite(PIN, HIGH);
-        delay(200);
-        digitalWrite(PIN, LOW);
-        delay(200);
-    }
+  for (int i = 0; i < numOfPulses; i++) {
+    digitalWrite(PIN, HIGH);
+    delay(200);
+    digitalWrite(PIN, LOW);
+    delay(200);
+  }
 }
 
 void resetPts() {
-    digitalWrite(Aplus, HIGH);
-    digitalWrite(Bplus, HIGH);
-    delay(3000);
-    digitalWrite(Aplus, LOW);
-    digitalWrite(Bplus, LOW);
+  digitalWrite(Aplus, HIGH);
+  digitalWrite(Bplus, HIGH);
+  delay(3000);
+  digitalWrite(Aplus, LOW);
+  digitalWrite(Bplus, LOW);
 }
 
-void validateVariables(){
-    if (currentPeriod > 9) currentPeriod = 1;
-    if (teamAFaults > 10) teamAFaults = 0;
-    if (teamBFaults > 10) teamBFaults = 0;
+void validateVariables() {
+  currentPeriod = (currentPeriod > 9) ? 1 : currentPeriod;
+  teamAFaults = (teamAFaults > 10) ? 0 : teamAFaults;
+  teamBFaults = (teamBFaults > 10) ? 0 : teamBFaults;
 }
 
 String updateJSON() {
 
-    validateVariables();
+  validateVariables();
 
-    String output = "{";
-    output += "\"teamAScore\":" + String(teamAScore) + ",";
-    output += "\"teamBScore\":" + String(teamBScore) + ",";
-    output += "\"teamAFaults\":" + String(teamAFaults) + ",";
-    output += "\"teamBFaults\":" + String(teamBFaults) + ",";
-    output += "\"currentPeriod\":" + String(currentPeriod);
-    output += "}";
+  String output = "{";
+  output += "\"teamAScore\":" + String(teamAScore) + ",";
+  output += "\"teamBScore\":" + String(teamBScore) + ",";
+  output += "\"teamAFaults\":" + String(teamAFaults) + ",";
+  output += "\"teamBFaults\":" + String(teamBFaults) + ",";
+  output += "\"currentPeriod\":" + String(currentPeriod);
+  output += "}";
 
-    return output;
+  return output;
 }
 
 void handleRoot(AsyncWebServerRequest *request) {
-    String html = R"rawliteral(
+  String html = R"rawliteral(
     <!DOCTYPE html>
     <html lang="pt-br">
     <head>
@@ -195,8 +203,8 @@ void handleRoot(AsyncWebServerRequest *request) {
     <title>Controlador Placar - SELT</title>
     <style>
         @font-face {
-        font-family: 'Seven Segment';
-        src: url('fonts/sevenSegment.ttf') format('truetype');
+            font-family: 'Seven Segment';
+            src: url('/sevenSegment.ttf');
         }
 
         * {
@@ -756,7 +764,7 @@ void handleRoot(AsyncWebServerRequest *request) {
 
         <!-- Rodapé -->
         <p>Feito por Tiago Oliveira. 
-            <a href="https://github.com/TiagoH1ro">
+            <a href="https://github.com/TiagoH1ro" target="_blank">
                 Github 
                 <img src="github.svg" class="github-icon">
             </a>
@@ -764,5 +772,5 @@ void handleRoot(AsyncWebServerRequest *request) {
     </body>
     </html>)rawliteral";
 
-    request->send(200, "text/html", html);
+  request->send(200, "text/html", html);
 }
