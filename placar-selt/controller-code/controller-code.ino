@@ -17,7 +17,7 @@ int teamBScore = 0;
 int teamAFaults = 0;
 int teamBFaults = 0;
 
-int currentPeriod = 0;
+int currentPeriod = 1;
 
 #define Aplus 4
 #define Bplus 16
@@ -48,65 +48,79 @@ void setup() {
     // Define as rotas para os botões
     server.on("/", HTTP_GET, handleRoot);
 
+    server.on("/start", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(200, "application/json", updateJSON());
+    });
+
+    server.on("/resetAll", HTTP_GET, [](AsyncWebServerRequest *request) {
+        teamAScore = 0;
+        teamBScore = 0;
+        teamAFaults = 0;
+        teamBFaults = 0;
+        currentPeriod = 1;
+
+        request->send(200, "application/json", updateJSON());
+    });
+
     server.on("/add1A", HTTP_GET, [](AsyncWebServerRequest *request) {
         teamAScore += 1;
         pinPulse(1, Aplus);
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
     server.on("/add2A", HTTP_GET, [](AsyncWebServerRequest *request) {
         teamAScore += 2;
         pinPulse(2, Aplus);
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
     server.on("/add3A", HTTP_GET, [](AsyncWebServerRequest *request) {
         teamAScore += 3;
         pinPulse(3, Aplus);
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
     server.on("/add1B", HTTP_GET, [](AsyncWebServerRequest *request) {
         teamBScore += 1;
         pinPulse(1, Bplus);
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
     server.on("/add2B", HTTP_GET, [](AsyncWebServerRequest *request) {
         teamBScore += 2;
         pinPulse(2, Bplus);
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
     server.on("/add3B", HTTP_GET, [](AsyncWebServerRequest *request) {
         teamBScore += 3;
         pinPulse(3, Bplus);
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
 
     server.on("/timer", HTTP_GET, [](AsyncWebServerRequest *request) {
         pinPulse(1, timer);
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
 
     server.on("/resetPts", HTTP_GET, [](AsyncWebServerRequest *request) {
         resetPts();
         teamAScore = 0;
         teamBScore = 0;
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
 
     server.on("/period", HTTP_GET, [](AsyncWebServerRequest *request) {
         currentPeriod++;
         pinPulse(1, period);
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
 
     server.on("/faultA", HTTP_GET, [](AsyncWebServerRequest *request) {
         teamAFaults++;
         pinPulse(1, Afault);
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
 
     server.on("/faultB", HTTP_GET, [](AsyncWebServerRequest *request) {
         teamBFaults++;
         pinPulse(1, Bfault);
-        request->send(200, "text/plain", "ok");
+        request->send(200, "application/json", updateJSON());
     });
 
     server.begin();
@@ -148,6 +162,27 @@ void resetPts() {
     delay(3000);
     digitalWrite(Aplus, LOW);
     digitalWrite(Bplus, LOW);
+}
+
+void validateVariables(){
+    if (currentPeriod > 9) currentPeriod = 1;
+    if (teamAFaults > 10) teamAFaults = 0;
+    if (teamBFaults > 10) teamBFaults = 0;
+}
+
+String updateJSON() {
+
+    validateVariables();
+
+    String output = "{";
+    output += "\"teamAScore\":" + String(teamAScore) + ",";
+    output += "\"teamBScore\":" + String(teamBScore) + ",";
+    output += "\"teamAFaults\":" + String(teamAFaults) + ",";
+    output += "\"teamBFaults\":" + String(teamBFaults) + ",";
+    output += "\"currentPeriod\":" + String(currentPeriod);
+    output += "}";
+
+    return output;
 }
 
 void handleRoot(AsyncWebServerRequest *request) {
@@ -469,16 +504,76 @@ void handleRoot(AsyncWebServerRequest *request) {
     </head>
     <body>
         <script>
-            var teamAScore = 0;
-            var teamBScore = 0;
-            var currentPeriod = 1;
-            var teamAFaults = 0;
-            var teamBFaults = 0;
+            document.addEventListener("DOMContentLoaded", function() {
+                var teamAScore = 0;
+                var teamBScore = 0;
+                var currentPeriod = 1;
+                var teamAFaults = 0;
+                var teamBFaults = 0;
+
+                const button = document.getElementById("resetBtn");
+                const LONG_PRESS_DURATION = 2000; 
+                let pressTimer;
+                let longPress = false;
+
+                function startPressTimer() {
+                    longPress = false;
+
+                    pressTimer = setTimeout(() => {
+                        longPress = true;
+                        fetch("resetAll")
+                            .then(response => response.json())
+                            .then(data => {
+                                teamAScore = data.teamAScore;
+                                teamBScore = data.teamBScore;
+                                teamAFaults = data.teamAFaults;
+                                teamBFaults = data.teamBFaults;
+                                currentPeriod = data.currentPeriod;
+
+                                document.getElementById("teamAScore").innerText = teamAScore;
+                                document.getElementById("teamBScore").innerText = teamBScore;
+                                document.getElementById("currentPeriod").innerText = currentPeriod;
+                                document.getElementById("teamAFaults").innerText = teamAFaults;
+                                document.getElementById("teamBFaults").innerText = teamBFaults;
+                                
+                                console.log("Placar resetado com sucesso!");
+                            })
+                            .catch(error => console.error("Erro ao buscar dados: ", error));
+                    }, LONG_PRESS_DURATION);
+                }
+
+                function cancelPressTimer() {
+                    clearTimeout(pressTimer);
+                }
+
+                button.addEventListener("touchstart", startPressTimer);
+                button.addEventListener("touchend", () => {
+                    cancelPressTimer();
+                    if (!longPress) {
+                        resetPts();
+                    }
+                });
+                button.addEventListener("touchcancel", cancelPressTimer);
+
+                fetch("/start")
+                    .then(response => response.json())
+                    .then(data => {
+                        teamAScore = data.teamAScore;
+                        teamBScore = data.teamBScore;
+                        teamAFaults = data.teamAFaults;
+                        teamBFaults = data.teamBFaults;
+                        currentPeriod = data.currentPeriod;
+
+                        document.getElementById("teamAScore").innerText = teamAScore;
+                        document.getElementById("teamBScore").innerText = teamBScore;
+                        document.getElementById("currentPeriod").innerText = currentPeriod;
+                        document.getElementById("teamAFaults").innerText = teamAFaults;
+                        document.getElementById("teamBFaults").innerText = teamBFaults;
+                    })
+                    .catch(error => console.error("Erro ao buscar dados: ", error));
+            });
 
             function addPointsTeamA(numberOfPoints) {
-                teamAScore += numberOfPoints;
-                document.getElementById("teamAScore").innerText = teamAScore;
-
                 var route = "";
 
                 switch(numberOfPoints){
@@ -493,13 +588,17 @@ void handleRoot(AsyncWebServerRequest *request) {
                         break;
                 }
 
-                fetch(route).then(response => console.log("Período incrementado"));
+                fetch(route)
+                    .then(response => response.json())
+                    .then(data => {
+                        teamAScore = data.teamAScore;
+                        
+                        document.getElementById("teamAScore").innerText = teamAScore;
+                    })
+                    .catch(error => console.error("Erro ao buscar dados: ", error));
             }
 
             function addPointsTeamB(numberOfPoints) {
-                teamBScore += numberOfPoints;
-                document.getElementById("teamBScore").innerText = teamBScore;
-
                 var route = "";
 
                 switch(numberOfPoints){
@@ -514,42 +613,66 @@ void handleRoot(AsyncWebServerRequest *request) {
                         break;
                 }
 
-                fetch(route).then(response => console.log("Período incrementado")); 
+                fetch(route)
+                    .then(response => response.json())
+                    .then(data => {
+                        teamBScore = data.teamBScore;
+
+                        document.getElementById("teamBScore").innerText = teamBScore;
+                    })
+                    .catch(error => console.error("Erro ao buscar dados: ", error));
             }
 
             function incrementPeriod() {
-                currentPeriod += 1;
-                document.getElementById("currentPeriod").innerText = currentPeriod;
+                fetch("/period")
+                    .then(response => response.json())
+                    .then(data => {
+                        currentPeriod = data.currentPeriod;
 
-                fetch("/period").then(response => console.log("Período incrementado"));
+                        document.getElementById("currentPeriod").innerText = currentPeriod;
+                    })
+                    .catch(error => console.error("Erro ao buscar dados: ", error));
             }
 
             function addFaultTeamA() {
-                teamAFaults += 1;
-                document.getElementById("teamAFaults").innerText = teamAFaults;
+                fetch("/faultA")
+                    .then(response => response.json())
+                    .then(data => {
+                        teamAFaults = data.teamAFaults;
 
-                fetch("/faultA").then(response => console.log("Falta time A"));
+                        document.getElementById("teamAFaults").innerText = teamAFaults;
+                    })
+                    .catch(error => console.error("Erro ao buscar dados: ", error));
             }
 
             function addFaultTeamB() {
-                teamBFaults += 1;
-                document.getElementById("teamBFaults").innerText = teamBFaults;
+                fetch("/faultB")
+                    .then(response => response.json())
+                    .then(data => {
+                        teamBFaults = data.teamBFaults;
 
-                fetch("/faultB").then(response => console.log("Falta time B"));
+                        document.getElementById("teamBFaults").innerText = teamBFaults;
+                    })
+                    .catch(error => console.error("Erro ao buscar dados: ", error));
             }
 
             function resetPts(){
-                teamAScore = 0;
-                teamBScore = 0;
-
-                document.getElementById("teamAScore").innerText = teamAScore;
-                document.getElementById("teamBScore").innerText = teamBScore;
-
-                fetch("/resetPts").then(response => console.log("Pontos Resetados"));
+                fetch("/resetPts")
+                    .then(response => response.json())
+                    .then(data => {
+                        teamAScore = data.teamAScore;
+                        teamBScore = data.teamBScore;
+                        
+                        document.getElementById("teamAScore").innerText = teamAScore;
+                        document.getElementById("teamBScore").innerText = teamBScore;
+                    })
+                    .catch(error => console.error("Erro ao buscar dados: ", error));
             }
 
             function timerClicked() {
-                fetch("/timer").then(response => console.log("Mudança no cronômetro"));
+                fetch("/timer")
+                    .then(response => console.log("Mudança no timer efetuada!"))
+                    .catch(error => console.error("Erro ao buscar dados: ", error));
             }
         </script>
         <div class="scoreboard-container">
@@ -623,7 +746,8 @@ void handleRoot(AsyncWebServerRequest *request) {
         </div>
 
         <!-- Botão de resetar pontos -->
-        <button class="reset-btn-1" onclick="resetPts()">RESETAR PONTOS</button>
+        <button class="reset-btn-1" id="resetBtn">RESETAR PONTOS</button>
+
         <!-- Botão Período -->
         <button class="reset-btn-2" onclick="incrementPeriod()">PERÍODO</button>
         
