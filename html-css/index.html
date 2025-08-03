@@ -14,6 +14,71 @@
         var teamAFaults = 0;
         var teamBFaults = 0;
 
+        document.addEventListener('DOMContentLoaded', () => {
+            const editBtn = document.getElementById('editBtn');
+            let editing = false;
+
+            editBtn.addEventListener('click', () => {
+
+                const teamAScoreValue = document.getElementById('teamAScore');
+                const teamBScoreValue = document.getElementById('teamBScore');
+                const teamAFaultsValue = document.getElementById('teamAFaults');
+                const teamBFaultsValue = document.getElementById('teamBFaults');
+                const currentPeriodValue = document.getElementById('currentPeriod');
+
+                if (!editing) {
+                    // Modo edição
+
+                    const inputAScore = document.createElement('input');
+                    inputAScore.type = 'number';
+                    inputAScore.value = teamAScore;
+                    inputAScore.id = 'teamAScore';
+                    inputAScore.className = 'score-text';
+
+                    const inputBScore = document.createElement('input');
+                    inputBScore.type = 'number';
+                    inputBScore.value = teamBScore;
+                    inputBScore.id = 'teamBScore';
+                    inputBScore.className = 'score-text';
+
+                    teamAScoreValue.replaceWith(inputAScore);
+                    teamBScoreValue.replaceWith(inputBScore);
+
+                    editBtn.textContent = "✅";
+                    editing = true;
+                } else {
+                    // Salvando valores
+
+                    const inputAScore = document.getElementById('teamAScore');
+                    const inputBScore = document.getElementById('teamBScore');
+
+                    const newScoreA = Number(inputAScore.value);
+                    const newScoreB = Number(inputBScore.value);
+
+                    if (!isNaN(newScoreA)) teamAScore = newScoreA;
+                    if (!isNaN(newScoreB)) teamBScore = newScoreB;
+
+                    const spanAScore = document.createElement('span');
+                    spanAScore.id = 'teamAScore';
+                    spanAScore.className = 'score-text';
+                    spanAScore.textContent = teamAScore;
+
+                    const spanBScore = document.createElement('span');
+                    spanBScore.id = 'teamBScore';
+                    spanBScore.className = 'score-text';
+                    spanBScore.textContent = teamBScore;
+
+                    inputAScore.replaceWith(spanAScore);
+                    inputBScore.replaceWith(spanBScore);
+
+                    //TODO: função para dar fetch nos pontos
+
+                    editBtn.textContent = "⚙️";
+                    editing = false;
+                }
+            });
+        });
+
         function addPointsTeamA(numberOfPoints) {
             teamAScore += numberOfPoints;
             document.getElementById("teamAScore").innerText = teamAScore;
@@ -90,6 +155,23 @@
         function timerClicked() {
             fetch("/timer").then(response => console.log("Mudança no cronômetro"));
         }
+
+        function editScorePoints() {
+            fetch("/editScorePoints", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    teamAScore: teamAScore,
+                    teamBScore: teamBScore,
+                    currentPeriod: currentPeriod,
+                    teamAFaults: teamAFaults,
+                    teamBFaults: teamBFaults
+                })
+            }).then(response => console.log("Placar editado com sucesso"));
+        }
+
     </script>
     <div class="scoreboard-container">
         <!-- FALTAS/SET A -->
@@ -130,6 +212,12 @@
             </div>
             <p class="score-label">TIME A</p>
         </div>
+
+        <!-- BOTÃO EDIÇÃO PONTOS -->
+        <div id="edit-btn-position">
+            <button class="edit-btn" id="editBtn">⚙️</button>
+        </div>
+
         <!-- PONTOS TIME B -->
         <div class="score-block" id="score-position-b">
             <div class="score-box-2">
