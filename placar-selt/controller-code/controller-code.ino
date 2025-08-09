@@ -6,7 +6,7 @@
 
 // Configurações da rede Wi-Fi
 const char *ssid = "Controlador Placar - SELT";
-const char *password = "";
+const char *password = "P$QTgpeE";
 
 // Inicializa o servidor web
 // WebServer server(80);
@@ -111,6 +111,9 @@ void setup() {
     resetPts();
     teamAScore = 0;
     teamBScore = 0;
+    teamAFaults = 0;
+    teamBFaults = 0;
+    currentPeriod = 1;
     request->send(200, "application/json", updateJSON());
   });
 
@@ -129,6 +132,34 @@ void setup() {
   server.on("/faultB", HTTP_GET, [](AsyncWebServerRequest *request) {
     teamBFaults++;
     pinPulse(1, Bfault);
+    request->send(200, "application/json", updateJSON());
+  });
+
+  server.on("/updateScore", HTTP_POST, [](AsyncWebServerRequest *request) {
+    resetPts();
+
+    if (request->hasParam("teamAScore", true)) {
+      teamAScore = request->getParam("teamAScore", true)->value().toInt();
+      startPinPulseAsync(teamAScore, Aplus);
+    }
+    if (request->hasParam("teamBScore", true)) {
+      teamBScore = request->getParam("teamBScore", true)->value().toInt();
+      startPinPulseAsync(teamBScore, Bplus);
+    }
+    if (request->hasParam("teamAFaults", true)) {
+      teamAFaults = request->getParam("teamAFaults", true)->value().toInt();
+      startPinPulseAsync(teamAFaults, Afault);
+    }
+    if (request->hasParam("teamBFaults", true)) {
+      teamBFaults = request->getParam("teamBFaults", true)->value().toInt();
+      startPinPulseAsync(teamBFaults, Bfault);
+    }
+    if (request->hasParam("currentPeriod", true)) {
+      currentPeriod = request->getParam("currentPeriod", true)->value().toInt();
+      startPinPulseAsync(currentPeriod, period);
+    }
+
+    validateVariables();
     request->send(200, "application/json", updateJSON());
   });
 
@@ -158,24 +189,47 @@ void pinSetup() {
 void pinPulse(int numOfPulses, int PIN) {
   for (int i = 0; i < numOfPulses; i++) {
     digitalWrite(PIN, HIGH);
-    delay(200);
+    delay(180);
     digitalWrite(PIN, LOW);
-    delay(200);
+    delay(180);
   }
+}
+
+struct PulseTaskData {
+    int numOfPulses;
+    int pin;
+};
+
+void startPinPulseAsync(int numOfPulses, int pin) {
+    PulseTaskData* data = new PulseTaskData{numOfPulses, pin};
+
+    xTaskCreate([](void* param) {
+        PulseTaskData* d = (PulseTaskData*)param;
+
+        for (int i = 0; i < d->numOfPulses; i++) {
+        digitalWrite(d->pin, HIGH);
+        delay(180);
+        digitalWrite(d->pin, LOW);
+        delay(180);
+        }
+
+        delete d;
+        vTaskDelete(NULL);
+    }, "PinPulseTask", 2048, data, 1, NULL);
 }
 
 void resetPts() {
   digitalWrite(Aplus, HIGH);
   digitalWrite(Bplus, HIGH);
-  delay(3000);
+  delay(1800);
   digitalWrite(Aplus, LOW);
   digitalWrite(Bplus, LOW);
 }
 
 void validateVariables() {
-  currentPeriod = (currentPeriod > 9) ? 1 : currentPeriod;
-  teamAFaults = (teamAFaults > 10) ? 0 : teamAFaults;
-  teamBFaults = (teamBFaults > 10) ? 0 : teamBFaults;
+  currentPeriod = (currentPeriod > 10) ? 1 : currentPeriod;
+  teamAFaults = (teamAFaults > 19) ? 0 : teamAFaults;
+  teamBFaults = (teamBFaults > 19) ? 0 : teamBFaults;
 }
 
 String updateJSON() {
@@ -202,11 +256,6 @@ void handleRoot(AsyncWebServerRequest *request) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controlador Placar - SELT</title>
     <style>
-        @font-face {
-            font-family: 'Seven Segment';
-            src: url('/sevenSegment.ttf');
-        }
-
         * {
             box-sizing: border-box;
         }
@@ -390,6 +439,21 @@ void handleRoot(AsyncWebServerRequest *request) {
             color: red;
         }
 
+        input.score-text {
+        width: 100%;
+        height: 100%;
+        background-color: transparent;
+        border: none;
+        outline: none;
+        padding: 0;
+        margin: 0;
+        text-align: center;
+        font-family: 'Seven Segment', sans-serif;
+        font-size: 16vw;
+        font-weight: bold;
+        color: red;
+        }
+
         .score-label {
             color: white;
             font-family: system-ui, 'Segoe UI', 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -452,6 +516,31 @@ void handleRoot(AsyncWebServerRequest *request) {
             transition: opacity 5s ease-in-out;
         }
 
+        .edit-btn {
+            font-size: 32px;
+            border: none;
+            background-color: transparent;
+            position: relative;
+            display: flex;
+            align-items: center;
+            bottom: -13vh;
+        }
+
+        input[type="number"] {
+            font-family: 'Seven Segment', sans-serif;
+            font-size: 16vw;
+            border: none;
+            text-align: center;
+            font-weight: bold;
+            color: red;
+        }
+
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
         /* Animção Fade */
         @keyframes fadeTimer {
             0%,
@@ -492,6 +581,11 @@ void handleRoot(AsyncWebServerRequest *request) {
             right: 5%;
         }
 
+        #edit-btn-position {
+            bottom: 10%;
+            left: 20%;
+        }
+
         p {
             text-align: center;
         }
@@ -511,13 +605,76 @@ void handleRoot(AsyncWebServerRequest *request) {
     </style>
     </head>
     <body>
-        <script>
-            document.addEventListener("DOMContentLoaded", function() {
+        <script>            
+            document.addEventListener("DOMContentLoaded", () => {
                 var teamAScore = 0;
                 var teamBScore = 0;
                 var currentPeriod = 1;
                 var teamAFaults = 0;
                 var teamBFaults = 0;
+
+                const editBtn = document.getElementById('editBtn');
+                let editing = false;
+
+                editBtn.addEventListener('click', () => {
+
+                    const teamAScoreValue = document.getElementById('teamAScore');
+                    const teamBScoreValue = document.getElementById('teamBScore');
+                    const teamAFaultsValue = document.getElementById('teamAFaults');
+                    const teamBFaultsValue = document.getElementById('teamBFaults');
+                    const currentPeriodValue = document.getElementById('currentPeriod');
+
+                    if (!editing) {
+                        // Modo edição
+
+                        const inputAScore = document.createElement('input');
+                        inputAScore.type = 'number';
+                        inputAScore.value = teamAScoreValue.innerText;
+                        inputAScore.id = 'teamAScore';
+                        inputAScore.className = 'score-text';
+
+                        const inputBScore = document.createElement('input');
+                        inputBScore.type = 'number';
+                        inputBScore.value = teamBScoreValue.innerText;
+                        inputBScore.id = 'teamBScore';
+                        inputBScore.className = 'score-text';
+
+                        teamAScoreValue.replaceWith(inputAScore);
+                        teamBScoreValue.replaceWith(inputBScore);
+
+                        editBtn.textContent = "✅";
+                        editing = true;
+                    } else {
+                        // Salvando valores
+
+                        const inputAScore = document.getElementById('teamAScore');
+                        const inputBScore = document.getElementById('teamBScore');
+
+                        const newScoreA = Number(inputAScore.value);
+                        const newScoreB = Number(inputBScore.value);
+
+                        if (!isNaN(newScoreA)) teamAScore = newScoreA;
+                        if (!isNaN(newScoreB)) teamBScore = newScoreB;
+
+                        const spanAScore = document.createElement('span');
+                        spanAScore.id = 'teamAScore';
+                        spanAScore.className = 'score-text';
+                        spanAScore.textContent = teamAScore;
+
+                        const spanBScore = document.createElement('span');
+                        spanBScore.id = 'teamBScore';
+                        spanBScore.className = 'score-text';
+                        spanBScore.textContent = teamBScore;
+
+                        inputAScore.replaceWith(spanAScore);
+                        inputBScore.replaceWith(spanBScore);
+
+                        updateScoreBoard(teamAScore, teamBScore, teamAFaults, teamBFaults, currentPeriod);
+
+                        editBtn.textContent = "⚙️";
+                        editing = false;
+                    }
+                });
 
                 const button = document.getElementById("resetBtn");
                 const LONG_PRESS_DURATION = 2000; 
@@ -581,30 +738,35 @@ void handleRoot(AsyncWebServerRequest *request) {
                     .catch(error => console.error("Erro ao buscar dados: ", error));
             });
 
-            function addPointsTeamA(numberOfPoints) {
-                var route = "";
-
-                switch(numberOfPoints){
-                    case 1:
-                        route = "/add1A";
-                        break;
-                    case 2:
-                        route = "/add2A";
-                        break;
-                    case 3:
-                        route = "/add3A";
-                        break;
-                }
-
-                fetch(route)
-                    .then(response => response.json())
-                    .then(data => {
-                        teamAScore = data.teamAScore;
-                        
-                        document.getElementById("teamAScore").innerText = teamAScore;
-                    })
+            function timerClicked() {
+                fetch("/timer")
+                    .then(response => console.log("Mudança no timer efetuada!"))
                     .catch(error => console.error("Erro ao buscar dados: ", error));
             }
+            function addPointsTeamA(numberOfPoints) {
+            var route = "";
+
+            switch(numberOfPoints){
+                case 1:
+                    route = "/add1A";
+                    break;
+                case 2:
+                    route = "/add2A";
+                    break;
+                case 3:
+                    route = "/add3A";
+                    break;
+            }
+
+            fetch(route)
+                .then(response => response.json())
+                .then(data => {
+                    teamAScore = data.teamAScore;
+                    
+                    document.getElementById("teamAScore").innerText = teamAScore;
+                })
+                .catch(error => console.error("Erro ao buscar dados: ", error));
+        }
 
             function addPointsTeamB(numberOfPoints) {
                 var route = "";
@@ -677,11 +839,24 @@ void handleRoot(AsyncWebServerRequest *request) {
                     .catch(error => console.error("Erro ao buscar dados: ", error));
             }
 
-            function timerClicked() {
-                fetch("/timer")
-                    .then(response => console.log("Mudança no timer efetuada!"))
-                    .catch(error => console.error("Erro ao buscar dados: ", error));
+            function updateScoreBoard(Apts, Bpts, AFaults, BFaults, period){
+                const scoreboardData = new URLSearchParams();
+                scoreboardData.append("teamAScore", Apts);
+                scoreboardData.append("teamAScore", Apts);
+                scoreboardData.append("teamBScore", Bpts);
+                scoreboardData.append("TeamAFaults", AFaults);
+                scoreboardData.append("teamBFaults", BFaults);
+                scoreboardData.append("currentPeriod", period);
+
+                fetch("/updateScore", {
+                    method: "POST",
+                    headers: { "Content-type": "application/x-www-form-urlencoded" },
+                    body: scoreboardData.toString()
+                })
+                    .then(response => console.log("Placar alterado com sucesso!"))
+                    .catch(e => { console.log("Erro: ", e) });
             }
+
         </script>
         <div class="scoreboard-container">
             <!-- FALTAS/SET A -->
@@ -721,6 +896,10 @@ void handleRoot(AsyncWebServerRequest *request) {
                     <span class="score-text" id="teamAScore">0</span>
                 </div>
                 <p class="score-label">TIME A</p>
+            </div>
+            <!-- BOTÃO EDIÇÃO PONTOS -->
+            <div id="edit-btn-position">
+                <button class="edit-btn" id="editBtn">⚙️</button>
             </div>
             <!-- PONTOS TIME B -->
             <div class="score-block" id="score-position-b">
