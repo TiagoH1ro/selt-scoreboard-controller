@@ -71,32 +71,32 @@ void setup() {
     request->send(200, "application/json", updateJSON());
   });
 
-  server.on("/add1A", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/teamA/add1", HTTP_GET, [](AsyncWebServerRequest *request) {
     teamAScore += 1;
     pinPulse(1, Aplus);
     request->send(200, "application/json", updateJSON());
   });
-  server.on("/add2A", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/teamA/add2", HTTP_GET, [](AsyncWebServerRequest *request) {
     teamAScore += 2;
     pinPulse(2, Aplus);
     request->send(200, "application/json", updateJSON());
   });
-  server.on("/add3A", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/teamA/add3", HTTP_GET, [](AsyncWebServerRequest *request) {
     teamAScore += 3;
     pinPulse(3, Aplus);
     request->send(200, "application/json", updateJSON());
   });
-  server.on("/add1B", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/teamB/add1", HTTP_GET, [](AsyncWebServerRequest *request) {
     teamBScore += 1;
     pinPulse(1, Bplus);
     request->send(200, "application/json", updateJSON());
   });
-  server.on("/add2B", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/teamB/add2", HTTP_GET, [](AsyncWebServerRequest *request) {
     teamBScore += 2;
     pinPulse(2, Bplus);
     request->send(200, "application/json", updateJSON());
   });
-  server.on("/add3B", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/teamB/add3", HTTP_GET, [](AsyncWebServerRequest *request) {
     teamBScore += 3;
     pinPulse(3, Bplus);
     request->send(200, "application/json", updateJSON());
@@ -123,13 +123,13 @@ void setup() {
     request->send(200, "application/json", updateJSON());
   });
 
-  server.on("/faultA", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/teamA/fault", HTTP_GET, [](AsyncWebServerRequest *request) {
     teamAFaults++;
     pinPulse(1, Afault);
     request->send(200, "application/json", updateJSON());
   });
 
-  server.on("/faultB", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/teamB/fault", HTTP_GET, [](AsyncWebServerRequest *request) {
     teamBFaults++;
     pinPulse(1, Bfault);
     request->send(200, "application/json", updateJSON());
@@ -748,13 +748,13 @@ void handleRoot(AsyncWebServerRequest *request) {
 
             switch(numberOfPoints){
                 case 1:
-                    route = "/add1A";
+                    route = "/teamA/add1";
                     break;
                 case 2:
-                    route = "/add2A";
+                    route = "/teamA/add2";
                     break;
                 case 3:
-                    route = "/add3A";
+                    route = "/teamA/add3";
                     break;
             }
 
@@ -773,13 +773,13 @@ void handleRoot(AsyncWebServerRequest *request) {
 
                 switch(numberOfPoints){
                     case 1:
-                        route = "/add1B";
+                        route = "/teamB/add1";
                         break;
                     case 2:
-                        route = "/add2B";
+                        route = "/teamB/add2";
                         break;
                     case 3:
-                        route = "/add3B";
+                        route = "/teamB/add3";
                         break;
                 }
 
@@ -805,7 +805,7 @@ void handleRoot(AsyncWebServerRequest *request) {
             }
 
             function addFaultTeamA() {
-                fetch("/faultA")
+                fetch("/teamA/fault")
                     .then(response => response.json())
                     .then(data => {
                         teamAFaults = data.teamAFaults;
@@ -816,7 +816,7 @@ void handleRoot(AsyncWebServerRequest *request) {
             }
 
             function addFaultTeamB() {
-                fetch("/faultB")
+                fetch("/teamB/fault")
                     .then(response => response.json())
                     .then(data => {
                         teamBFaults = data.teamBFaults;
