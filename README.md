@@ -286,9 +286,3 @@ The control panel is a responsive single-page app served directly by the ESP32.
 - `CRONÔMETRO` — toggle the timer
 - `RESETAR PONTOS` — short press resets points; **hold 2 seconds** for a full reset
 - `⚙️` edit button — enables inline editing of all values simultaneously
-
----
-
-## Author
-
-Made by **Tiago Oliveira** — [github.com/TiagoH1ro](https://github.com/TiagoH1ro)
