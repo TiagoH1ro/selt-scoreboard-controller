@@ -6,10 +6,8 @@
 
 // Configurações da rede Wi-Fi
 const char *ssid = "Controlador Placar - SELT";
-const char *password = "P$QTgpeE";
+const char *password = "";
 
-// Inicializa o servidor web
-// WebServer server(80);
 AsyncWebServer server(80);
 
 int teamAScore = 0;
@@ -20,15 +18,28 @@ int teamBFaults = 0;
 
 int currentPeriod = 1;
 
-#define Aplus 4
-#define Bplus 16
+constexpr uint8_t PIN_APLUS  = 4;
+constexpr uint8_t PIN_BPLUS  = 16;
 
-#define Afault 17
-#define Bfault 5
+constexpr uint8_t PIN_AFAULT = 17;
+constexpr uint8_t PIN_BFAULT = 5;
 
-#define timer 18
-#define period 19
+constexpr uint8_t PIN_TIMER  = 18;
+constexpr uint8_t PIN_PERIOD = 19;
 
+constexpr uint16_t PULSE_MS = 180;
+constexpr uint16_t RESET_MS = 1800;
+constexpr uint8_t MAX_PERIOD = 10;
+constexpr uint8_t MAX_FAULTS = 19;
+
+const char *JSON_CONTENT = "application/json";
+
+void resetState();
+void clampState();
+String updateJSON();
+void sendState(AsyncWebServerRequest *request);
+void handleAddPoints(AsyncWebServerRequest *request, int &score, int points, int pin);
+void handleFault(AsyncWebServerRequest *request, int &faults, int pin);
 void setup() {
   Serial.begin(115200);
 
@@ -42,9 +53,13 @@ void setup() {
   IPAddress gateway(192, 168, 1, 1);
   IPAddress subnet(255, 255, 255, 0);
 
-  MDNS.begin("placar");
+  if (!MDNS.begin("placar")) {
+    Serial.println("Falha ao iniciar mDNS");
+  }
 
-  WiFi.softAPConfig(local_IP, gateway, subnet);
+  if (!WiFi.softAPConfig(local_IP, gateway, subnet)) {
+    Serial.println("Falha ao configurar IP fixo");
+  }
 
   if (!LittleFS.begin()) {
     Serial.println("Falha ao montar o sistema de arquivos LittleFS");
@@ -58,109 +73,82 @@ void setup() {
   server.on("/", HTTP_GET, handleRoot);
 
   server.on("/start", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "application/json", updateJSON());
+    sendState(request);
   });
 
   server.on("/resetAll", HTTP_GET, [](AsyncWebServerRequest *request) {
-    teamAScore = 0;
-    teamBScore = 0;
-    teamAFaults = 0;
-    teamBFaults = 0;
-    currentPeriod = 1;
-
-    request->send(200, "application/json", updateJSON());
+    resetState();
+    sendState(request);
   });
 
   server.on("/teamA/add1", HTTP_GET, [](AsyncWebServerRequest *request) {
-    teamAScore += 1;
-    pinPulse(1, Aplus);
-    request->send(200, "application/json", updateJSON());
+    handleAddPoints(request, teamAScore, 1, PIN_APLUS);
   });
   server.on("/teamA/add2", HTTP_GET, [](AsyncWebServerRequest *request) {
-    teamAScore += 2;
-    pinPulse(2, Aplus);
-    request->send(200, "application/json", updateJSON());
+    handleAddPoints(request, teamAScore, 2, PIN_APLUS);
   });
   server.on("/teamA/add3", HTTP_GET, [](AsyncWebServerRequest *request) {
-    teamAScore += 3;
-    pinPulse(3, Aplus);
-    request->send(200, "application/json", updateJSON());
+    handleAddPoints(request, teamAScore, 3, PIN_APLUS);
   });
   server.on("/teamB/add1", HTTP_GET, [](AsyncWebServerRequest *request) {
-    teamBScore += 1;
-    pinPulse(1, Bplus);
-    request->send(200, "application/json", updateJSON());
+    handleAddPoints(request, teamBScore, 1, PIN_BPLUS);
   });
   server.on("/teamB/add2", HTTP_GET, [](AsyncWebServerRequest *request) {
-    teamBScore += 2;
-    pinPulse(2, Bplus);
-    request->send(200, "application/json", updateJSON());
+    handleAddPoints(request, teamBScore, 2, PIN_BPLUS);
   });
   server.on("/teamB/add3", HTTP_GET, [](AsyncWebServerRequest *request) {
-    teamBScore += 3;
-    pinPulse(3, Bplus);
-    request->send(200, "application/json", updateJSON());
+    handleAddPoints(request, teamBScore, 3, PIN_BPLUS);
   });
 
   server.on("/timer", HTTP_GET, [](AsyncWebServerRequest *request) {
-    pinPulse(1, timer);
-    request->send(200, "application/json", updateJSON());
+    pinPulse(1, PIN_TIMER);
+    sendState(request);
   });
 
   server.on("/resetPts", HTTP_GET, [](AsyncWebServerRequest *request) {
     resetPts();
-    teamAScore = 0;
-    teamBScore = 0;
-    teamAFaults = 0;
-    teamBFaults = 0;
-    currentPeriod = 1;
-    request->send(200, "application/json", updateJSON());
+    resetState();
+    sendState(request);
   });
 
   server.on("/period", HTTP_GET, [](AsyncWebServerRequest *request) {
     currentPeriod++;
-    pinPulse(1, period);
-    request->send(200, "application/json", updateJSON());
+    pinPulse(1, PIN_PERIOD);
+    sendState(request);
   });
 
   server.on("/teamA/fault", HTTP_GET, [](AsyncWebServerRequest *request) {
-    teamAFaults++;
-    pinPulse(1, Afault);
-    request->send(200, "application/json", updateJSON());
+    handleFault(request, teamAFaults, PIN_AFAULT);
   });
 
   server.on("/teamB/fault", HTTP_GET, [](AsyncWebServerRequest *request) {
-    teamBFaults++;
-    pinPulse(1, Bfault);
-    request->send(200, "application/json", updateJSON());
+    handleFault(request, teamBFaults, PIN_BFAULT);
   });
 
   server.on("/updateScore", HTTP_POST, [](AsyncWebServerRequest *request) {
     resetPts();
 
-    if (request->hasParam("teamAScore", true)) {
+    if (request->hasParam("teamAScore", true))
       teamAScore = request->getParam("teamAScore", true)->value().toInt();
-      startPinPulseAsync(teamAScore, Aplus);
-    }
-    if (request->hasParam("teamBScore", true)) {
+    if (request->hasParam("teamBScore", true))
       teamBScore = request->getParam("teamBScore", true)->value().toInt();
-      startPinPulseAsync(teamBScore, Bplus);
-    }
-    if (request->hasParam("teamAFaults", true)) {
+    if (request->hasParam("teamAFaults", true))
       teamAFaults = request->getParam("teamAFaults", true)->value().toInt();
-      startPinPulseAsync(teamAFaults, Afault);
-    }
-    if (request->hasParam("teamBFaults", true)) {
+    if (request->hasParam("teamBFaults", true))
       teamBFaults = request->getParam("teamBFaults", true)->value().toInt();
-      startPinPulseAsync(teamBFaults, Bfault);
-    }
-    if (request->hasParam("currentPeriod", true)) {
+    if (request->hasParam("currentPeriod", true))
       currentPeriod = request->getParam("currentPeriod", true)->value().toInt();
-      startPinPulseAsync(currentPeriod, period);
-    }
 
-    validateVariables();
-    request->send(200, "application/json", updateJSON());
+    // Clamp values before firing pulses so we never send more pulses than allowed
+    clampState();
+
+    startPinPulseAsync(teamAScore, PIN_APLUS);
+    startPinPulseAsync(teamBScore, PIN_BPLUS);
+    startPinPulseAsync(teamAFaults, PIN_AFAULT);
+    startPinPulseAsync(teamBFaults, PIN_BFAULT);
+    startPinPulseAsync(currentPeriod, PIN_PERIOD);
+
+    sendState(request);
   });
 
   server.begin();
@@ -171,71 +159,97 @@ void loop() {
 }
 
 void pinSetup() {
-  pinMode(Aplus, OUTPUT);
-  pinMode(Bplus, OUTPUT);
-  pinMode(Afault, OUTPUT);
-  pinMode(Bfault, OUTPUT);
-  pinMode(timer, OUTPUT);
-  pinMode(period, OUTPUT);
+  pinMode(PIN_APLUS, OUTPUT);
+  pinMode(PIN_BPLUS, OUTPUT);
+  pinMode(PIN_AFAULT, OUTPUT);
+  pinMode(PIN_BFAULT, OUTPUT);
+  pinMode(PIN_TIMER, OUTPUT);
+  pinMode(PIN_PERIOD, OUTPUT);
 
-  digitalWrite(Aplus, LOW);
-  digitalWrite(Bplus, LOW);
-  digitalWrite(Afault, LOW);
-  digitalWrite(Bfault, LOW);
-  digitalWrite(timer, LOW);
-  digitalWrite(period, LOW);
+  digitalWrite(PIN_APLUS, LOW);
+  digitalWrite(PIN_BPLUS, LOW);
+  digitalWrite(PIN_AFAULT, LOW);
+  digitalWrite(PIN_BFAULT, LOW);
+  digitalWrite(PIN_TIMER, LOW);
+  digitalWrite(PIN_PERIOD, LOW);
 }
 
 void pinPulse(int numOfPulses, int PIN) {
   for (int i = 0; i < numOfPulses; i++) {
     digitalWrite(PIN, HIGH);
-    delay(180);
+    delay(PULSE_MS);
     digitalWrite(PIN, LOW);
-    delay(180);
+    delay(PULSE_MS);
   }
 }
 
 struct PulseTaskData {
-    int numOfPulses;
-    int pin;
+  int numOfPulses;
+  int pin;
 };
 
 void startPinPulseAsync(int numOfPulses, int pin) {
-    PulseTaskData* data = new PulseTaskData{numOfPulses, pin};
+  PulseTaskData *data = new PulseTaskData{numOfPulses, pin};
 
-    xTaskCreate([](void* param) {
-        PulseTaskData* d = (PulseTaskData*)param;
+  if (xTaskCreate([](void *param) {
+        PulseTaskData *d = (PulseTaskData *)param;
 
         for (int i = 0; i < d->numOfPulses; i++) {
-        digitalWrite(d->pin, HIGH);
-        delay(180);
-        digitalWrite(d->pin, LOW);
-        delay(180);
+          digitalWrite(d->pin, HIGH);
+          delay(PULSE_MS);
+          digitalWrite(d->pin, LOW);
+          delay(PULSE_MS);
         }
 
         delete d;
         vTaskDelete(NULL);
-    }, "PinPulseTask", 2048, data, 1, NULL);
+      }, "PinPulseTask", 2048, data, 1, NULL) != pdPASS) {
+    delete data;
+  }
 }
 
 void resetPts() {
-  digitalWrite(Aplus, HIGH);
-  digitalWrite(Bplus, HIGH);
-  delay(1800);
-  digitalWrite(Aplus, LOW);
-  digitalWrite(Bplus, LOW);
+  digitalWrite(PIN_APLUS, HIGH);
+  digitalWrite(PIN_BPLUS, HIGH);
+  delay(RESET_MS);
+  digitalWrite(PIN_APLUS, LOW);
+  digitalWrite(PIN_BPLUS, LOW);
 }
 
-void validateVariables() {
-  currentPeriod = (currentPeriod > 10) ? 1 : currentPeriod;
-  teamAFaults = (teamAFaults > 19) ? 0 : teamAFaults;
-  teamBFaults = (teamBFaults > 19) ? 0 : teamBFaults;
+void resetState() {
+  teamAScore = 0;
+  teamBScore = 0;
+  teamAFaults = 0;
+  teamBFaults = 0;
+  currentPeriod = 1;
+}
+
+void sendState(AsyncWebServerRequest *request) {
+  clampState();
+  request->send(200, JSON_CONTENT, updateJSON());
+}
+
+void handleAddPoints(AsyncWebServerRequest *request, int &score, int points, int pin) {
+  score += points;
+  pinPulse(points, pin);
+  sendState(request);
+}
+
+void handleFault(AsyncWebServerRequest *request, int &faults, int pin) {
+  faults += 1;
+  pinPulse(1, pin);
+  sendState(request);
+}
+
+void clampState() {
+  currentPeriod = constrain(currentPeriod, 1, MAX_PERIOD);
+  teamAFaults   = constrain(teamAFaults,   0, MAX_FAULTS);
+  teamBFaults   = constrain(teamBFaults,   0, MAX_FAULTS);
+  teamAScore    = max(teamAScore, 0);
+  teamBScore    = max(teamBScore, 0);
 }
 
 String updateJSON() {
-
-  validateVariables();
-
   String output = "{";
   output += "\"teamAScore\":" + String(teamAScore) + ",";
   output += "\"teamBScore\":" + String(teamBScore) + ",";
@@ -255,7 +269,12 @@ void handleRoot(AsyncWebServerRequest *request) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controlador Placar - SELT</title>
-    <style>
+        <style>
+        @font-face {
+            font-family: 'Seven Segment';
+            src: url('/sevenSegment.ttf') format('truetype');
+        }
+
         * {
             box-sizing: border-box;
         }
@@ -264,61 +283,63 @@ void handleRoot(AsyncWebServerRequest *request) {
             margin: 0;
             background-color: #cccccc;
             font-family: Arial, sans-serif;
-            height: 100vh;
+            min-height: 100vh;
         }
 
         /* Container principal */
         .scoreboard-container {
-            width: 96vw;
-            height: 42vh;
+            width: min(96vw, 1200px);
+            height: clamp(240px, 42vh, 420px);
             background-color: #4c4c4c;
-            border-radius: 5vw;
+            border-radius: clamp(18px, 4vw, 40px);
             margin: 1vh auto;
             position: relative;
             display: flex;
             justify-content: space-around;
             align-items: center;
             flex-wrap: wrap;
-            padding: 4vw;
+            padding: clamp(12px, 3vw, 28px);
 
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
         }
 
         .team-a-container {
-            width: 96vw;
-            height: 20vh;
+            width: min(96vw, 1200px);
+            height: clamp(160px, 20vh, 240px);
             background-color: #0487D9;
-            border-radius: 5vw;
+            border-radius: clamp(18px, 4vw, 40px);
             margin: 1vh auto;
             position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
             flex-wrap: wrap;
-            padding: 1vw;
+            padding: clamp(8px, 2vw, 18px);
 
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
         }
 
         .team-b-container {
-            width: 96vw;
-            height: 20vh;
+            width: min(96vw, 1200px);
+            height: clamp(160px, 20vh, 240px);
             background-color: #2E4959;
-            border-radius: 5vw;
+            border-radius: clamp(18px, 4vw, 40px);
             margin: 1vh auto;
             position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
             flex-wrap: wrap;
-            padding-top: 7vw;
+            padding-top: clamp(20px, 6vw, 60px);
 
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
         }
 
         .btn-row {
             display: flex;
-            gap: 10px;
+            flex-wrap: wrap;
+            gap: clamp(8px, 1.6vw, 14px);
+            justify-content: center;
             margin-top: 1vh;
         }
 
@@ -328,11 +349,11 @@ void handleRoot(AsyncWebServerRequest *request) {
             margin: 1vh auto;
             position: relative;
             display: block;
-            padding: 4vw 4vw;
-            font-size: 4vw;
+            padding: clamp(12px, 3.5vw, 26px);
+            font-size: clamp(14px, 3.2vw, 24px);
             font-weight: bold;
             border: none;
-            border-radius: 2vw;
+            border-radius: clamp(8px, 2vw, 18px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             transition: background-color 0.3s ease;
         }
@@ -343,11 +364,11 @@ void handleRoot(AsyncWebServerRequest *request) {
             margin: 1vh auto;
             position: relative;
             display: block;
-            padding: 4vw 4vw;
-            font-size: 4vw;
+            padding: clamp(12px, 3.5vw, 26px);
+            font-size: clamp(14px, 3.2vw, 24px);
             font-weight: bold;
             border: none;
-            border-radius: 2vw;
+            border-radius: clamp(8px, 2vw, 18px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             transition: background-color 0.3s ease;
         }
@@ -358,11 +379,11 @@ void handleRoot(AsyncWebServerRequest *request) {
             margin: 1vh auto;
             position: relative;
             display: block;
-            padding: 4vw 4vw;
-            font-size: 4vw;
+            padding: clamp(12px, 3.5vw, 26px);
+            font-size: clamp(14px, 3.2vw, 24px);
             font-weight: bold;
             border: none;
-            border-radius: 2vw;
+            border-radius: clamp(8px, 2vw, 18px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             transition: background-color 0.3s ease;
         }
@@ -371,11 +392,11 @@ void handleRoot(AsyncWebServerRequest *request) {
             background-color: #D26262;
             color: white;
             margin: 1vh auto;
-            padding: 4vw 4vw;
-            font-size: 4vw;
+            padding: clamp(12px, 3.5vw, 26px);
+            font-size: clamp(14px, 3.2vw, 24px);
             font-weight: bold;
             border: none;
-            border-radius: 2vw;
+            border-radius: clamp(8px, 2vw, 18px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             transition: background-color 0.3s ease;
             position: absolute;
@@ -388,11 +409,11 @@ void handleRoot(AsyncWebServerRequest *request) {
             background-color: #D26262;
             color: white;
             margin: 1vh auto;
-            padding: 4vw 4vw;
-            font-size: 4vw;
+            padding: clamp(12px, 3.5vw, 26px);
+            font-size: clamp(14px, 3.2vw, 24px);
             font-weight: bold;
             border: none;
-            border-radius: 2vw;
+            border-radius: clamp(8px, 2vw, 18px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             transition: background-color 0.3s ease;
             position: absolute;
@@ -410,31 +431,31 @@ void handleRoot(AsyncWebServerRequest *request) {
 
         .score-box {
             background-color: #414141;
-            border: 1.5vw solid white;
-            border-radius: 2vw;
+            border: clamp(2px, 1vw, 8px) solid white;
+            border-radius: clamp(10px, 2.4vw, 22px);
             display: flex;
             justify-content: center;
             align-items: center;
-            width: 20vw;
-            height: 18vw;
+            width: clamp(80px, 18vw, 180px);
+            height: clamp(70px, 16vw, 160px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
 
         .score-box-2 {
             background-color: #414141;
-            border: 1.5vw solid white;
-            border-radius: 2vw;
+            border: clamp(2px, 1vw, 8px) solid white;
+            border-radius: clamp(10px, 2.4vw, 22px);
             display: flex;
             justify-content: center;
             align-items: center;
-            width: 32vw;
-            height: 18vw;
+            width: clamp(120px, 30vw, 280px);
+            height: clamp(70px, 16vw, 160px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
 
         .score-text {
             font-family: 'Seven Segment', sans-serif;
-            font-size: 16vw;
+            font-size: clamp(36px, 12vw, 120px);
             font-weight: bold;
             color: red;
         }
@@ -449,7 +470,7 @@ void handleRoot(AsyncWebServerRequest *request) {
         margin: 0;
         text-align: center;
         font-family: 'Seven Segment', sans-serif;
-        font-size: 16vw;
+        font-size: clamp(36px, 12vw, 120px);
         font-weight: bold;
         color: red;
         }
@@ -457,7 +478,7 @@ void handleRoot(AsyncWebServerRequest *request) {
         .score-label {
             color: white;
             font-family: system-ui, 'Segoe UI', 'Open Sans', 'Helvetica Neue', sans-serif;
-            font-size: 3.5vw;
+            font-size: clamp(12px, 2.6vw, 22px);
             font-weight: bolder;
             margin-top: 1vw;
             margin-bottom: 1vw;
@@ -467,7 +488,7 @@ void handleRoot(AsyncWebServerRequest *request) {
         .team-label {
             color: white;
             font-family: system-ui, 'Segoe UI', 'Open Sans', 'Helvetica Neue', sans-serif;
-            font-size: 6vw;
+            font-size: clamp(16px, 4vw, 32px);
             font-weight: bolder;
             margin-top: 1vw;
             margin-bottom: 1vw;
@@ -477,10 +498,10 @@ void handleRoot(AsyncWebServerRequest *request) {
         .period-box {
             left: 50%;
             background-color: #373737;
-            border: 1.5vw solid white;
-            border-radius: 3vw;
-            width: 15vw;
-            height: 15vw;
+            border: clamp(2px, 1vw, 8px) solid white;
+            border-radius: clamp(12px, 3vw, 26px);
+            width: clamp(70px, 14vw, 140px);
+            height: clamp(70px, 14vw, 140px);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -489,7 +510,7 @@ void handleRoot(AsyncWebServerRequest *request) {
 
         .period-text {
             font-family: 'Seven Segment', sans-serif;
-            font-size: 10vw;
+            font-size: clamp(28px, 8vw, 72px);
             font-weight: bold;
             color: red;
         }
@@ -497,10 +518,10 @@ void handleRoot(AsyncWebServerRequest *request) {
         .timer-box {
             left: 50%;
             background-color: #373737;
-            border: 1.5vw solid white;
-            border-radius: 3vw;
-            width: 30vw;
-            height: 15vw;
+            border: clamp(2px, 1vw, 8px) solid white;
+            border-radius: clamp(12px, 3vw, 26px);
+            width: clamp(160px, 30vw, 320px);
+            height: clamp(70px, 14vw, 140px);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -509,7 +530,7 @@ void handleRoot(AsyncWebServerRequest *request) {
 
         .timer-text {
             font-family: 'Seven Segment', sans-serif;
-            font-size: 10vw;
+            font-size: clamp(28px, 8vw, 72px);
             font-weight: bolder;
             color: red;
             animation: fadeTimer 5s infinite ease-in-out;
@@ -517,7 +538,7 @@ void handleRoot(AsyncWebServerRequest *request) {
         }
 
         .edit-btn {
-            font-size: 32px;
+            font-size: clamp(24px, 6vw, 36px);
             border: none;
             background-color: transparent;
             position: relative;
@@ -528,7 +549,7 @@ void handleRoot(AsyncWebServerRequest *request) {
 
         input[type="number"] {
             font-family: 'Seven Segment', sans-serif;
-            font-size: 16vw;
+            font-size: clamp(36px, 12vw, 120px);
             border: none;
             text-align: center;
             font-weight: bold;
@@ -602,16 +623,31 @@ void handleRoot(AsyncWebServerRequest *request) {
             height: 20px;
             margin-right: 8px;
         }
+
+        @media (max-width: 720px) {
+            .scoreboard-container {
+                height: clamp(260px, 50vh, 420px);
+            }
+
+            .reset-btn-1,
+            .reset-btn-2,
+            .btn {
+                position: static;
+                transform: none;
+                width: min(90vw, 320px);
+                display: block;
+            }
+        }
     </style>
     </head>
     <body>
-        <script>            
+        <script>
             document.addEventListener("DOMContentLoaded", () => {
-                var teamAScore = 0;
-                var teamBScore = 0;
-                var currentPeriod = 1;
-                var teamAFaults = 0;
-                var teamBFaults = 0;
+                let teamAScore = 0;
+                let teamBScore = 0;
+                let currentPeriod = 1;
+                let teamAFaults = 0;
+                let teamBFaults = 0;
 
                 const editBtn = document.getElementById('editBtn');
                 let editing = false;
@@ -686,7 +722,7 @@ void handleRoot(AsyncWebServerRequest *request) {
 
                     pressTimer = setTimeout(() => {
                         longPress = true;
-                        fetch("resetAll")
+                        fetch("/resetAll")
                             .then(response => response.json())
                             .then(data => {
                                 teamAScore = data.teamAScore;
@@ -744,7 +780,7 @@ void handleRoot(AsyncWebServerRequest *request) {
                     .catch(error => console.error("Erro ao buscar dados: ", error));
             }
             function addPointsTeamA(numberOfPoints) {
-            var route = "";
+            let route = "";
 
             switch(numberOfPoints){
                 case 1:
@@ -769,7 +805,7 @@ void handleRoot(AsyncWebServerRequest *request) {
         }
 
             function addPointsTeamB(numberOfPoints) {
-                var route = "";
+                let route = "";
 
                 switch(numberOfPoints){
                     case 1:
@@ -842,9 +878,8 @@ void handleRoot(AsyncWebServerRequest *request) {
             function updateScoreBoard(Apts, Bpts, AFaults, BFaults, period){
                 const scoreboardData = new URLSearchParams();
                 scoreboardData.append("teamAScore", Apts);
-                scoreboardData.append("teamAScore", Apts);
                 scoreboardData.append("teamBScore", Bpts);
-                scoreboardData.append("TeamAFaults", AFaults);
+                scoreboardData.append("teamAFaults", AFaults);
                 scoreboardData.append("teamBFaults", BFaults);
                 scoreboardData.append("currentPeriod", period);
 
@@ -853,7 +888,7 @@ void handleRoot(AsyncWebServerRequest *request) {
                     headers: { "Content-type": "application/x-www-form-urlencoded" },
                     body: scoreboardData.toString()
                 })
-                    .then(response => console.log("Placar alterado com sucesso!"))
+                    .then(() => console.log("Placar alterado com sucesso!"))
                     .catch(e => { console.log("Erro: ", e) });
             }
 
@@ -953,3 +988,19 @@ void handleRoot(AsyncWebServerRequest *request) {
 
   request->send(200, "text/html", html);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
