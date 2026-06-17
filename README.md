@@ -7,6 +7,7 @@ A Wi-Fi-controlled electronic scoreboard controller built with the **ESP32** mic
 ## Table of Contents
 
 - [Overview](#overview)
+- [Academic Project](#academic-project)
 - [Features](#features)
 - [System Architecture](#system-architecture)
 - [Hardware](#hardware)
@@ -30,6 +31,20 @@ A Wi-Fi-controlled electronic scoreboard controller built with the **ESP32** mic
 The controller runs a lightweight **async HTTP server** directly on the ESP32, which acts as a Wi-Fi access point. Users connect to the ESP32's network and access the control panel through any browser. Each button press on the interface sends an HTTP request to the ESP32, which then outputs precise **digital pulses** on GPIO pins to drive the physical scoreboard hardware.
 
 ---
+
+## Academic Project
+This project was developed as part of my undergraduate thesis (TCC).
+
+[Electronic Scoreboard Controller Thesis](docs/TCC-Tiago-Oliveira.pdf)
+
+The thesis covers:
+- Requirements analysis
+- System architecture
+- Hardware design
+- Software implementation
+- Testing and validation
+- Results and conclusions
+
 
 ## Features
 
@@ -158,6 +173,8 @@ The following libraries are **built into the ESP32 Arduino core** and require no
 
 ```
 selt-scoreboard-controller/
+├── docs
+│   ├──TCC-Tiago_Oliveira.pdf
 ├── html-css/                        # Standalone UI files (for development/preview)
 │   ├── index.html
 │   └── styles.css
